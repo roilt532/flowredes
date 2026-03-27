@@ -97,7 +97,7 @@ Las cookies de TikTok han expirado y la subida falló.
 """
     return send_telegram_message(message)
 
-def notify_video_uploaded(platform, username, description):
+def notify_video_uploaded(platform, video_id, description):
     """Notifica cuando se sube un video específico"""
     emoji = "📱" if platform == "tiktok" else "📸"
     platform_name = "TikTok" if platform == "tiktok" else "Instagram"
@@ -108,7 +108,6 @@ def notify_video_uploaded(platform, username, description):
     message = f"""
 {emoji} <b>Video Subido a {platform_name}</b>
 
-👤 Origen: @{username}
 📝 {desc_short}
 """
     return send_telegram_message(message)

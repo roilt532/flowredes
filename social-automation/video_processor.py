@@ -80,10 +80,19 @@ def process_video(input_path, output_path):
 
 def enhance_description(original_description):
     """
-    Mejora la descripción añadiendo hashtags virales y emojis
+    Mejora la descripción añadiendo hashtags virales y emojis.
+    También elimina menciones de usuarios (@username) para mayor privacidad.
     """
+    import re
+    
     # Limpiar descripción original
     desc = original_description.strip() if original_description else ""
+    
+    # ELIMINAR menciones de usuarios (@username)
+    desc = re.sub(r'@[\w.]+', '', desc)
+    
+    # Limpiar espacios múltiples que puedan quedar
+    desc = re.sub(r'\s+', ' ', desc).strip()
     
     # Añadir emoji al principio
     emoji = random.choice(VIRAL_EMOJIS)
