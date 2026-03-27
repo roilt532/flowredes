@@ -1,0 +1,24 @@
+{
+  "sessionid": "45402018416%3A1jVgRHQfjyzwwR%3A11%3AAYg7uCIKGEX_mwFHXqK0LUwR87bGuxRgE91X0xxt8g",
+  "username": "lennyyolosa",
+  "uuids": {
+    "phone_id": "44900775-6725-4123-6571-681917752328",
+    "uuid": "86712476-8465-8338-3507-351928896457",
+    "client_session_id": "92460877-6201-6902-8719-807286438733",
+    "advertising_id": "13384689-6258-9093-8865-815979511493",
+    "device_id": "android-2672852053441019"
+  },
+  "device_settings": {
+    "app_version": "269.0.0.18.75",
+    "android_version": 31,
+    "android_release": "12.0",
+    "dpi": "480dpi",
+    "resolution": "1080x2400",
+    "manufacturer": "samsung",
+    "device": "SM-G998B",
+    "model": "galaxy s21 ultra 5g",
+    "cpu": "exynos2100",
+    "version_code": "314665256"
+  },
+  "user_agent": "Instagram 269.0.0.18.75 Android (31/12.0; 480dpi; 1080x2400; samsung; SM-G998B; galaxy s21 ultra 5g; exynos2100; es_ES; 314665256)"
+}

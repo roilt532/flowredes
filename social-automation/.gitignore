@@ -1,0 +1,33 @@
+# Media Flow Engine
+# Sistema de automatización de redes sociales
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales
+.env
+.venv
+env/
+venv/
+
+# Videos temporales (no subir al repo)
+videos_raw/
+videos_ready/
+
+# Logs locales
+logs/*.log
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# NO ignorar archivos importantes:
+# !auth/tiktok_cookies.json (necesario para la automatización)
+# !data/source_accounts.json
+# !data/uploaded_videos.json

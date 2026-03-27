@@ -1,0 +1,90 @@
+name: 🚀 Media Flow Engine - Automatización 24/7
+
+on:
+  # Ejecutar cada 2 horas (0:00, 2:00, 4:00, 6:00, etc.)
+  schedule:
+    - cron: '0 */2 * * *'
+  
+  # Permitir ejecución manual desde GitHub
+  workflow_dispatch:
+    inputs:
+      videos_count:
+        description: 'Número de videos a procesar'
+        required: false
+        default: '10'
+
+jobs:
+  automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # Límite de 1 hora por ejecución
+    
+    steps:
+      - name: 📥 Descargar código
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Instalar FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: 📦 Instalar dependencias Python
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🎭 Instalar navegadores Playwright
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: 🔧 Configurar credenciales
+        run: |
+          # Crear directorio de auth si no existe
+          mkdir -p auth data logs
+          
+          # Las cookies de TikTok ya deben estar en el repo
+          # Las credenciales sensibles se gestionan via GitHub Secrets
+          
+      - name: 🚀 Ejecutar automatización
+        env:
+          # Variables de entorno desde GitHub Secrets (opcional)
+          TIKTOK_SESSIONID: ${{ secrets.TIKTOK_SESSIONID }}
+          INSTAGRAM_SESSIONID: ${{ secrets.INSTAGRAM_SESSIONID }}
+        run: |
+          # Número de videos (desde input o default 10)
+          VIDEOS=${{ github.event.inputs.videos_count || '10' }}
+          echo "🎬 Procesando $VIDEOS videos..."
+          python main.py $VIDEOS
+
+      - name: 📊 Guardar logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ github.run_number }}
+          path: |
+            logs/
+            data/uploaded_videos.json
+          retention-days: 7
+
+      - name: 📸 Guardar capturas de error
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots-${{ github.run_number }}
+          path: logs/*.png
+          retention-days: 7
+
+      - name: 💾 Commit cambios (videos subidos)
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/uploaded_videos.json data/source_accounts.json || true
+          git diff --staged --quiet || git commit -m "🤖 Actualizar registro de videos subidos - $(date '+%Y-%m-%d %H:%M')"
+          git push || true
