@@ -12,6 +12,53 @@ from config import TIKTOK_COOKIES_FILE, LOGS_DIR
 # User agent móvil para mejor compatibilidad
 USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 
+def clean_cookies_for_playwright(cookies):
+    """
+    Limpia y normaliza las cookies para que sean compatibles con Playwright.
+    Playwright solo acepta sameSite: 'Strict', 'Lax', o 'None'
+    """
+    cleaned = []
+    for cookie in cookies:
+        clean_cookie = {
+            "name": cookie.get("name", ""),
+            "value": cookie.get("value", ""),
+            "domain": cookie.get("domain", ".tiktok.com"),
+            "path": cookie.get("path", "/"),
+        }
+        
+        # Normalizar sameSite
+        same_site = cookie.get("sameSite", "Lax")
+        if same_site in ["Strict", "Lax", "None"]:
+            clean_cookie["sameSite"] = same_site
+        elif same_site == "no_restriction":
+            clean_cookie["sameSite"] = "None"
+        elif same_site == "lax":
+            clean_cookie["sameSite"] = "Lax"
+        elif same_site == "strict":
+            clean_cookie["sameSite"] = "Strict"
+        else:
+            clean_cookie["sameSite"] = "Lax"  # Default seguro
+        
+        # Añadir secure si sameSite es None (requerido)
+        if clean_cookie["sameSite"] == "None":
+            clean_cookie["secure"] = True
+        elif "secure" in cookie:
+            clean_cookie["secure"] = cookie["secure"]
+        
+        # Añadir httpOnly si existe
+        if "httpOnly" in cookie:
+            clean_cookie["httpOnly"] = cookie["httpOnly"]
+        
+        # Añadir expires si existe (convertir expirationDate a expires)
+        if "expirationDate" in cookie and cookie["expirationDate"]:
+            clean_cookie["expires"] = int(cookie["expirationDate"])
+        elif "expires" in cookie and cookie["expires"]:
+            clean_cookie["expires"] = int(cookie["expires"])
+        
+        cleaned.append(clean_cookie)
+    
+    return cleaned
+
 async def human_delay(min_sec=1, max_sec=3):
     """Simula delay humano"""
     await asyncio.sleep(random.uniform(min_sec, max_sec))
@@ -83,7 +130,9 @@ async def upload_to_tiktok(video_path, description, cookies_file=None):
             if cookies_file and os.path.exists(cookies_file):
                 print("  📦 Cargando cookies...")
                 with open(cookies_file, 'r') as f:
-                    cookies = json.load(f)
+                    raw_cookies = json.load(f)
+                # Limpiar cookies para compatibilidad con Playwright
+                cookies = clean_cookies_for_playwright(raw_cookies)
                 await context.add_cookies(cookies)
             else:
                 print("  ⚠️ No hay archivo de cookies")
