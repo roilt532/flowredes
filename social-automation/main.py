@@ -17,6 +17,7 @@ from video_downloader import download_batch, save_uploaded_video, clean_raw_vide
 from video_processor import process_batch, clean_ready_videos
 from tiktok_uploader import upload_videos_to_tiktok
 from instagram_uploader import upload_batch_instagram, create_instagram_session, INSTAGRAPI_AVAILABLE
+from telegram_notifier import notify_start, notify_success, notify_error, notify_cookies_expired
 
 def log_execution(message):
     """Registra la ejecución en un log"""
@@ -50,6 +51,9 @@ def run_full_pipeline(videos_count=None):
     
     log_execution(f"Iniciando pipeline - Objetivo: {videos_count} videos")
     
+    # Notificar inicio por Telegram
+    notify_start()
+    
     # PASO 1: Verificar que tenemos cuentas
     print("\n📋 PASO 1: Verificando cuentas fuente...")
     accounts = get_active_accounts()
@@ -65,6 +69,7 @@ def run_full_pipeline(videos_count=None):
     
     if not accounts:
         log_execution("ERROR: No se pudieron obtener cuentas")
+        notify_error("No hay cuentas disponibles para descargar videos")
         return {"success": False, "error": "No hay cuentas disponibles"}
     
     print(f"✅ {len(accounts)} cuentas disponibles")
@@ -75,6 +80,7 @@ def run_full_pipeline(videos_count=None):
     
     if not downloaded:
         log_execution("ERROR: No se descargaron videos")
+        notify_error("No se pudieron descargar videos de ninguna cuenta")
         return {"success": False, "error": "No se pudieron descargar videos"}
     
     log_execution(f"Descargados: {len(downloaded)} videos")
@@ -97,6 +103,10 @@ def run_full_pipeline(videos_count=None):
         tiktok_results = upload_videos_to_tiktok(processed)
         tiktok_success = sum(1 for r in tiktok_results if r["success"])
         log_execution(f"TikTok: {tiktok_success}/{len(processed)} subidos")
+        
+        # Si ninguno se subió, probablemente las cookies expiraron
+        if tiktok_success == 0 and len(processed) > 0:
+            notify_cookies_expired()
     else:
         log_execution("ADVERTENCIA: No hay cookies de TikTok, omitiendo subida")
         print("⚠️ No hay cookies de TikTok configuradas")
@@ -144,6 +154,15 @@ def run_full_pipeline(videos_count=None):
     print("=" * 60)
     
     log_execution(f"Pipeline completado - TikTok: {total_tiktok}, Instagram: {total_ig}")
+    
+    # Notificar éxito por Telegram
+    stats = {
+        "downloaded": len(downloaded),
+        "processed": len(processed),
+        "tiktok_uploaded": total_tiktok,
+        "instagram_uploaded": total_ig
+    }
+    notify_success(stats)
     
     return {
         "success": True,
