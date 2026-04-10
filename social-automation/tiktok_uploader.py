@@ -169,8 +169,8 @@ async def upload_to_tiktok(video_path, description, cookies_file=None):
             
             await close_popups(page)
             
-            # Escribir descripción
-            print("  📝 Escribiendo descripción...")
+            # Limpiar descripción (TikTok puede poner el nombre del archivo)
+            print("  📝 Limpiando descripción...")
             try:
                 # Intentar varios selectores para el campo de descripción
                 caption_selectors = [
@@ -194,12 +194,18 @@ async def upload_to_tiktok(video_path, description, cookies_file=None):
                     await caption_box.click()
                     await human_delay(0.5, 1)
                     
-                    # Limpiar y escribir
+                    # Seleccionar todo y BORRAR (dejar vacío)
                     await page.keyboard.press("Control+a")
-                    await page.keyboard.type(description, delay=random.randint(30, 80))
+                    await page.keyboard.press("Backspace")
+                    await human_delay(0.3, 0.5)
+                    
+                    # Si hay descripción, escribirla; si no, dejar vacío
+                    if description and description.strip():
+                        await page.keyboard.type(description, delay=random.randint(30, 80))
+                    # Si description está vacía, simplemente no escribimos nada
                     
             except Exception as e:
-                print(f"  ⚠️ No se pudo escribir descripción: {e}")
+                print(f"  ⚠️ No se pudo limpiar descripción: {e}")
             
             await human_delay(2, 4)
             await close_popups(page)

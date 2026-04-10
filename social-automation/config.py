@@ -12,12 +12,12 @@ INSTAGRAM_EMAIL = "escobaralvaro698@gmail.com"
 
 # ============ CONFIGURACIÓN DE PUBLICACIÓN ============
 VIDEOS_PER_BATCH = 10  # Videos para TikTok cada ejecución
-VIDEOS_PER_BATCH_INSTAGRAM = 5  # Videos para Instagram (menos para evitar restricciones)
+VIDEOS_PER_BATCH_INSTAGRAM = 3  # Solo 3 videos para Instagram (muy conservador)
 BATCH_INTERVAL_HOURS = 2  # Cada 2 horas
 
 # Delays entre videos (segundos)
 TIKTOK_DELAY_BETWEEN_VIDEOS = (30, 60)  # 30-60 segundos
-INSTAGRAM_DELAY_BETWEEN_VIDEOS = (120, 180)  # 2-3 minutos (más seguro)
+INSTAGRAM_DELAY_BETWEEN_VIDEOS = (180, 300)  # 3-5 minutos (mucho más seguro)
 
 # ============ CONFIGURACIÓN DE VIDEO ============
 # Calidad mejorada
