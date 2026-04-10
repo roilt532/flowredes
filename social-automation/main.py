@@ -15,6 +15,7 @@ from config import (
 from account_checker import get_active_accounts, fetch_accounts_from_sheet, verify_all_accounts, save_verified_accounts
 from video_downloader import download_batch, save_uploaded_video, clean_raw_videos
 from video_processor import process_batch, clean_ready_videos
+from text_detector import filter_videos_without_text, EASYOCR_AVAILABLE
 from tiktok_uploader import upload_videos_to_tiktok
 from instagram_uploader import upload_batch_instagram, create_instagram_session, INSTAGRAPI_AVAILABLE
 from telegram_notifier import notify_start, notify_success, notify_error, notify_cookies_expired
@@ -74,9 +75,11 @@ def run_full_pipeline(videos_count=None):
     
     print(f"✅ {len(accounts)} cuentas disponibles")
     
-    # PASO 2: Descargar videos
+    # PASO 2: Descargar videos (descargamos más para compensar los filtrados)
     print("\n📥 PASO 2: Descargando videos...")
-    downloaded = download_batch(videos_count)
+    # Descargar 50% más para compensar videos con texto que se descartarán
+    download_count = int(videos_count * 1.5) if EASYOCR_AVAILABLE else videos_count
+    downloaded = download_batch(download_count)
     
     if not downloaded:
         log_execution("ERROR: No se descargaron videos")
@@ -84,6 +87,22 @@ def run_full_pipeline(videos_count=None):
         return {"success": False, "error": "No se pudieron descargar videos"}
     
     log_execution(f"Descargados: {len(downloaded)} videos")
+    
+    # PASO 2.5: Filtrar videos con texto flotante
+    print("\n🔍 PASO 2.5: Filtrando videos con texto...")
+    if EASYOCR_AVAILABLE:
+        filtered = filter_videos_without_text(downloaded)
+        discarded = len(downloaded) - len(filtered)
+        if discarded > 0:
+            log_execution(f"Filtrados: {discarded} videos descartados por texto flotante")
+        downloaded = filtered
+        
+        if not downloaded:
+            log_execution("ERROR: Todos los videos tenían texto")
+            notify_error("Todos los videos descargados tenían texto flotante")
+            return {"success": False, "error": "No hay videos sin texto"}
+    else:
+        print("  ⏭️ Detección de texto no disponible, continuando...")
     
     # PASO 3: Procesar videos
     print("\n🛠️ PASO 3: Procesando videos...")

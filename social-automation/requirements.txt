@@ -3,3 +3,4 @@ requests>=2.31.0
 playwright>=1.40.0
 instagrapi>=2.1.0
 Pillow>=10.0.0
+easyocr>=1.7.0

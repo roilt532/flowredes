@@ -1,14 +1,25 @@
 """
-Detector de texto en videos
-Filtra videos que contienen texto visible para evitar texto invertido
+Detector de texto flotante en videos
+Filtra videos que contienen texto superpuesto para evitar texto invertido por el efecto espejo
 """
 import os
 import subprocess
 import tempfile
 
+# Intentar importar easyocr
+try:
+    import easyocr
+    EASYOCR_AVAILABLE = True
+    # Inicializar reader (solo español e inglés para rapidez)
+    reader = easyocr.Reader(['es', 'en'], gpu=False, verbose=False)
+except ImportError:
+    EASYOCR_AVAILABLE = False
+    reader = None
+    print("⚠️ easyocr no disponible - detección de texto desactivada")
+
 def extract_frames(video_path, num_frames=3):
     """
-    Extrae frames del video para analizar
+    Extrae frames del video para analizar (inicio, medio, final)
     """
     frames = []
     temp_dir = tempfile.mkdtemp()
@@ -24,7 +35,7 @@ def extract_frames(video_path, num_frames=3):
         result = subprocess.run(duration_cmd, capture_output=True, text=True, timeout=30)
         duration = float(result.stdout.strip()) if result.stdout.strip() else 10
         
-        # Extraer frames en diferentes momentos (25%, 50%, 75% del video)
+        # Extraer frames en 25%, 50%, 75% del video
         for i, pct in enumerate([0.25, 0.5, 0.75]):
             timestamp = duration * pct
             frame_path = os.path.join(temp_dir, f"frame_{i}.jpg")
@@ -34,8 +45,9 @@ def extract_frames(video_path, num_frames=3):
                 "-i", video_path,
                 "-vframes", "1",
                 "-q:v", "2",
+                "-vf", "scale=640:-1",  # Reducir tamaño para análisis más rápido
                 frame_path,
-                "-y"
+                "-y", "-loglevel", "error"
             ]
             subprocess.run(extract_cmd, capture_output=True, timeout=30)
             
@@ -48,56 +60,60 @@ def extract_frames(video_path, num_frames=3):
         print(f"  ⚠️ Error extrayendo frames: {e}")
         return [], temp_dir
 
-def detect_text_in_frame(frame_path):
+def detect_text_in_frame(frame_path, min_confidence=0.4):
     """
-    Detecta si hay texto significativo en un frame usando análisis de bordes.
-    Método simple sin dependencias externas de OCR.
-    Detecta patrones que típicamente indican texto superpuesto.
+    Detecta si hay texto significativo en un frame usando OCR.
+    Solo detecta texto flotante/superpuesto (típicamente tiene alto contraste).
+    
+    Returns: (tiene_texto, cantidad_de_texto)
     """
+    if not EASYOCR_AVAILABLE or reader is None:
+        return False, 0
+    
     try:
-        # Usar FFmpeg para analizar contraste/bordes (indica texto)
-        analyze_cmd = [
-            "ffprobe", "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "frame=pkt_pts_time",
-            "-of", "csv=p=0",
-            frame_path
-        ]
-        # Este es un análisis básico - el texto suele crear bordes definidos
+        # Detectar texto con easyocr
+        results = reader.readtext(frame_path, detail=1)
         
-        # Alternativa: analizar histogram para detectar texto blanco/negro superpuesto
-        histogram_cmd = [
-            "ffmpeg", "-i", frame_path,
-            "-vf", "format=gray,histogram",
-            "-f", "null", "-"
-        ]
-        result = subprocess.run(histogram_cmd, capture_output=True, text=True, timeout=30)
+        # Filtrar por confianza y longitud mínima
+        significant_text = []
+        for (bbox, text, confidence) in results:
+            # Solo contar texto con buena confianza y más de 2 caracteres
+            if confidence >= min_confidence and len(text.strip()) > 2:
+                significant_text.append(text)
         
-        # Por ahora, retornamos False para no bloquear videos
-        # En el futuro se puede integrar EasyOCR o Tesseract
-        return False
+        has_text = len(significant_text) >= 1  # Al menos 1 texto detectado
+        return has_text, len(significant_text)
         
     except Exception as e:
-        return False
+        print(f"  ⚠️ Error en OCR: {e}")
+        return False, 0
 
-def has_text_overlay(video_path):
+def has_floating_text(video_path):
     """
-    Analiza si un video tiene texto superpuesto.
-    Retorna True si se detecta texto significativo.
+    Analiza si un video tiene texto flotante/superpuesto.
+    Retorna True si se detecta texto en al menos 2 de 3 frames.
     
-    NOTA: Esta es una implementación básica. Para mejor detección,
-    se necesitaría instalar easyocr o pytesseract.
+    Esto indica texto consistente (subtítulos, overlay) vs texto momentáneo.
     """
-    print(f"  🔍 Analizando texto en video...")
+    if not EASYOCR_AVAILABLE:
+        print("  ⏭️ OCR no disponible, saltando detección")
+        return False
+    
+    print(f"  🔍 Detectando texto flotante...")
     
     frames, temp_dir = extract_frames(video_path)
-    has_text = False
+    
+    if not frames:
+        print(f"  ⚠️ No se pudieron extraer frames")
+        return False
+    
+    frames_with_text = 0
     
     try:
         for frame_path in frames:
-            if detect_text_in_frame(frame_path):
-                has_text = True
-                break
+            has_text, text_count = detect_text_in_frame(frame_path)
+            if has_text:
+                frames_with_text += 1
         
         # Limpiar frames temporales
         for frame_path in frames:
@@ -111,24 +127,36 @@ def has_text_overlay(video_path):
             pass
             
     except Exception as e:
-        print(f"  ⚠️ Error en detección de texto: {e}")
+        print(f"  ⚠️ Error en detección: {e}")
+        return False
     
-    if has_text:
-        print(f"  ⚠️ Texto detectado - video descartado")
+    # Si 2+ de 3 frames tienen texto = texto flotante persistente
+    has_floating = frames_with_text >= 2
+    
+    if has_floating:
+        print(f"  ⚠️ Texto flotante detectado ({frames_with_text}/3 frames) - DESCARTADO")
     else:
-        print(f"  ✅ Sin texto superpuesto")
+        print(f"  ✅ Sin texto flotante ({frames_with_text}/3 frames)")
     
-    return has_text
+    return has_floating
 
-def filter_videos_with_text(video_list):
+def filter_videos_without_text(video_list):
     """
-    Filtra una lista de videos, removiendo los que tienen texto.
+    Filtra una lista de videos, removiendo los que tienen texto flotante.
     """
+    if not EASYOCR_AVAILABLE:
+        print("⚠️ Detección de texto desactivada (easyocr no disponible)")
+        return video_list
+    
+    print(f"\n🔍 FILTRO DE TEXTO - Analizando {len(video_list)} videos...")
+    
     filtered = []
     discarded = 0
     
-    for video in video_list:
-        if not has_text_overlay(video["path"]):
+    for i, video in enumerate(video_list):
+        print(f"\n[{i+1}/{len(video_list)}] {os.path.basename(video['path'])}")
+        
+        if not has_floating_text(video["path"]):
             filtered.append(video)
         else:
             discarded += 1
@@ -138,15 +166,6 @@ def filter_videos_with_text(video_list):
             except:
                 pass
     
-    if discarded > 0:
-        print(f"  📊 Videos filtrados: {discarded} descartados por tener texto")
+    print(f"\n📊 Resultado: {len(filtered)} videos OK, {discarded} descartados por texto")
     
     return filtered
-
-# Para habilitar detección OCR real en el futuro:
-# pip install easyocr
-# import easyocr
-# reader = easyocr.Reader(['es', 'en'])
-# result = reader.readtext(frame_path)
-# if len(result) > 0 and any(conf > 0.5 for _, _, conf in result):
-#     return True
