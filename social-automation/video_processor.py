@@ -6,7 +6,7 @@ detecten que son videos resubidos
 import os
 import subprocess
 import random
-from config import VIDEOS_RAW_DIR, VIDEOS_READY_DIR, VIRAL_HASHTAGS, VIRAL_EMOJIS
+from config import VIDEOS_RAW_DIR, VIDEOS_READY_DIR, VIDEO_CRF, VIDEO_PRESET, AUDIO_BITRATE
 
 def process_video(input_path, output_path):
     """
@@ -47,10 +47,10 @@ def process_video(input_path, output_path):
         "-metadata", "comment=",         # Limpiar comentarios
         "-metadata", "description=",     # Limpiar descripción
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",                    # Calidad decente
+        "-preset", VIDEO_PRESET,         # Calidad mejorada
+        "-crf", str(VIDEO_CRF),          # Mejor calidad
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", AUDIO_BITRATE,           # Mejor audio
         output_path,
         "-y"                             # Sobrescribir si existe
     ]
@@ -80,45 +80,9 @@ def process_video(input_path, output_path):
 
 def enhance_description(original_description):
     """
-    Mejora la descripción añadiendo hashtags virales y emojis.
-    También elimina menciones de usuarios (@username) para mayor privacidad.
+    Ahora devuelve descripción vacía - videos sin texto ni hashtags
     """
-    import re
-    
-    # Limpiar descripción original
-    desc = original_description.strip() if original_description else ""
-    
-    # ELIMINAR menciones de usuarios (@username)
-    desc = re.sub(r'@[\w.]+', '', desc)
-    
-    # Limpiar espacios múltiples que puedan quedar
-    desc = re.sub(r'\s+', ' ', desc).strip()
-    
-    # Añadir emoji al principio
-    emoji = random.choice(VIRAL_EMOJIS)
-    
-    # Seleccionar 3-5 hashtags virales aleatorios
-    num_hashtags = random.randint(3, 5)
-    hashtags = random.sample(VIRAL_HASHTAGS, num_hashtags)
-    
-    # Construir nueva descripción
-    if desc:
-        # Si ya tiene hashtags, añadir los nuevos
-        new_desc = f"{emoji} {desc}"
-        
-        # Añadir hashtags que no estén ya
-        for tag in hashtags:
-            if tag.lower() not in desc.lower():
-                new_desc += f" {tag}"
-    else:
-        # Sin descripción original
-        new_desc = f"{emoji} " + " ".join(hashtags)
-    
-    # Limitar longitud (TikTok tiene límite de ~2200 caracteres)
-    if len(new_desc) > 2000:
-        new_desc = new_desc[:2000]
-    
-    return new_desc
+    return ""
 
 def process_batch(video_list):
     """

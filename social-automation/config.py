@@ -11,16 +11,19 @@ INSTAGRAM_USERNAME = "lennyyolosa"
 INSTAGRAM_EMAIL = "escobaralvaro698@gmail.com"
 
 # ============ CONFIGURACIÓN DE PUBLICACIÓN ============
-VIDEOS_PER_BATCH = 10  # Videos a publicar cada ejecución
+VIDEOS_PER_BATCH = 10  # Videos para TikTok cada ejecución
+VIDEOS_PER_BATCH_INSTAGRAM = 5  # Videos para Instagram (menos para evitar restricciones)
 BATCH_INTERVAL_HOURS = 2  # Cada 2 horas
 
-# ============ HASHTAGS VIRALES ADICIONALES ============
-VIRAL_HASHTAGS = [
-    "#fyp", "#foryou", "#viral", "#parati", "#foryoupage",
-    "#trending", "#xyzbca", "#viralvideo", "#explorepage"
-]
+# Delays entre videos (segundos)
+TIKTOK_DELAY_BETWEEN_VIDEOS = (30, 60)  # 30-60 segundos
+INSTAGRAM_DELAY_BETWEEN_VIDEOS = (120, 180)  # 2-3 minutos (más seguro)
 
-VIRAL_EMOJIS = ["🔥", "✨", "💫", "⭐", "💖", "😍", "🥰", "💕"]
+# ============ CONFIGURACIÓN DE VIDEO ============
+# Calidad mejorada
+VIDEO_CRF = 20  # Mejor calidad (antes era 23)
+VIDEO_PRESET = "medium"  # Mejor balance calidad/velocidad (antes era veryfast)
+AUDIO_BITRATE = "192k"  # Mejor audio (antes era 128k)
 
 # ============ RUTAS ============
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

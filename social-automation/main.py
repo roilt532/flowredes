@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 
 from config import (
-    VIDEOS_PER_BATCH, TIKTOK_COOKIES_FILE, 
+    VIDEOS_PER_BATCH, VIDEOS_PER_BATCH_INSTAGRAM, TIKTOK_COOKIES_FILE, 
     INSTAGRAM_SESSION_FILE, DATA_DIR, LOGS_DIR
 )
 from account_checker import get_active_accounts, fetch_accounts_from_sheet, verify_all_accounts, save_verified_accounts
@@ -111,14 +111,18 @@ def run_full_pipeline(videos_count=None):
         log_execution("ADVERTENCIA: No hay cookies de TikTok, omitiendo subida")
         print("⚠️ No hay cookies de TikTok configuradas")
     
-    # PASO 5: Subir a Instagram
+    # PASO 5: Subir a Instagram (menos videos para evitar restricciones)
     print("\n📤 PASO 5: Subiendo a Instagram...")
     instagram_results = []
     
     if INSTAGRAPI_AVAILABLE and os.path.exists(INSTAGRAM_SESSION_FILE):
-        instagram_results = upload_batch_instagram(processed)
+        # Limitar videos para Instagram (solo los primeros N)
+        videos_for_instagram = processed[:VIDEOS_PER_BATCH_INSTAGRAM]
+        print(f"  📸 Limitando a {len(videos_for_instagram)} videos para Instagram")
+        
+        instagram_results = upload_batch_instagram(videos_for_instagram)
         ig_success = sum(1 for r in instagram_results if r["success"])
-        log_execution(f"Instagram: {ig_success}/{len(processed)} subidos")
+        log_execution(f"Instagram: {ig_success}/{len(videos_for_instagram)} subidos")
     else:
         log_execution("ADVERTENCIA: Instagram no configurado, omitiendo subida")
         print("⚠️ Instagram no configurado")

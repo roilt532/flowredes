@@ -6,7 +6,7 @@ import os
 import json
 import time
 import random
-from config import INSTAGRAM_SESSION_FILE, INSTAGRAM_USERNAME, LOGS_DIR
+from config import INSTAGRAM_SESSION_FILE, INSTAGRAM_USERNAME, LOGS_DIR, INSTAGRAM_DELAY_BETWEEN_VIDEOS
 
 # Intentar importar instagrapi
 try:
@@ -170,7 +170,8 @@ def upload_batch_instagram(video_list):
         
         # Delay entre uploads (Instagram es más estricto)
         if i < len(video_list) - 1:
-            delay = random.randint(60, 120)  # 1-2 minutos entre videos
+            min_delay, max_delay = INSTAGRAM_DELAY_BETWEEN_VIDEOS
+            delay = random.randint(min_delay, max_delay)  # 2-3 minutos entre videos
             print(f"  ⏳ Esperando {delay}s antes del siguiente video...")
             time.sleep(delay)
     
