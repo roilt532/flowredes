@@ -2,6 +2,7 @@
 Configuración central del sistema de automatización
 """
 import os
+from datetime import datetime
 
 # ============ CUENTAS DESTINO ============
 TIKTOK_USERNAME = "fishsinner._"
@@ -11,19 +12,24 @@ INSTAGRAM_USERNAME = "lennyyolosa"
 INSTAGRAM_EMAIL = "escobaralvaro698@gmail.com"
 
 # ============ CONFIGURACIÓN DE PUBLICACIÓN ============
-VIDEOS_PER_BATCH = 10  # Videos para TikTok cada ejecución
-VIDEOS_PER_BATCH_INSTAGRAM = 3  # Solo 3 videos para Instagram (muy conservador)
-BATCH_INTERVAL_HOURS = 2  # Cada 2 horas
+# Ahora publicamos 1 video por ejecución, pero ejecutamos varias veces al día
+VIDEOS_PER_EXECUTION = 1  # 1 video por ejecución
 
-# Delays entre videos (segundos)
-TIKTOK_DELAY_BETWEEN_VIDEOS = (30, 60)  # 30-60 segundos
-INSTAGRAM_DELAY_BETWEEN_VIDEOS = (180, 300)  # 3-5 minutos (mucho más seguro)
+# Horas de publicación (hora en UTC, España es UTC+1/+2)
+# TikTok: 6 veces al día (7:00, 10:00, 13:00, 17:00, 20:00, 22:00 hora España)
+TIKTOK_HOURS_UTC = [6, 9, 12, 16, 19, 21]  # 6 ejecuciones
+
+# Instagram: 3 veces al día (9:00, 14:00, 21:00 hora España) - horas de máximo alcance
+INSTAGRAM_HOURS_UTC = [8, 13, 20]  # Solo 3 ejecuciones
+
+# Delays entre videos (si se suben múltiples en una ejecución)
+TIKTOK_DELAY_BETWEEN_VIDEOS = (30, 60)
+INSTAGRAM_DELAY_BETWEEN_VIDEOS = (180, 300)
 
 # ============ CONFIGURACIÓN DE VIDEO ============
-# Calidad mejorada
-VIDEO_CRF = 20  # Mejor calidad (antes era 23)
-VIDEO_PRESET = "medium"  # Mejor balance calidad/velocidad (antes era veryfast)
-AUDIO_BITRATE = "192k"  # Mejor audio (antes era 128k)
+VIDEO_CRF = 20
+VIDEO_PRESET = "medium"
+AUDIO_BITRATE = "192k"
 
 # ============ RUTAS ============
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,3 +47,13 @@ INSTAGRAM_SESSION_FILE = os.path.join(AUTH_DIR, "instagram_session.json")
 
 # ============ GOOGLE SHEETS URL ============
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTy-gwTrRtNuwCSw75qM-rsFs2jdpTuIBu0Hy7QCqtFr_beqHx9bDQiHfs0c8Ui8PAbqrFvjaZQ-0xL/pub?gid=0&single=true&output=csv"
+
+def should_post_to_tiktok():
+    """Verifica si la hora actual es hora de publicar en TikTok"""
+    current_hour = datetime.utcnow().hour
+    return current_hour in TIKTOK_HOURS_UTC
+
+def should_post_to_instagram():
+    """Verifica si la hora actual es hora de publicar en Instagram"""
+    current_hour = datetime.utcnow().hour
+    return current_hour in INSTAGRAM_HOURS_UTC

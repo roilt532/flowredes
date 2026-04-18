@@ -11,7 +11,7 @@ from datetime import datetime
 from account_checker import get_active_accounts
 from config import (
     VIDEOS_RAW_DIR, TIKTOK_COOKIES_FILE, 
-    UPLOADED_VIDEOS_FILE, DATA_DIR, VIDEOS_PER_BATCH, AUTH_DIR
+    UPLOADED_VIDEOS_FILE, DATA_DIR, VIDEOS_PER_EXECUTION, AUTH_DIR
 )
 
 # Archivo de cookies en formato Netscape para yt-dlp
@@ -149,7 +149,7 @@ def download_batch(target_count=None):
     Descarga un lote de videos de diferentes cuentas
     """
     if target_count is None:
-        target_count = VIDEOS_PER_BATCH
+        target_count = VIDEOS_PER_EXECUTION
     
     print("=" * 50)
     print(f"📥 DESCARGADOR DE VIDEOS - Objetivo: {target_count} videos")

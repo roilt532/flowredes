@@ -1,6 +1,7 @@
 """
 Script principal de automatización
 Coordina todo el flujo: descarga → procesamiento → subida
+Publica 1 video por ejecución en horarios específicos
 """
 import os
 import sys
@@ -9,8 +10,9 @@ import time
 from datetime import datetime
 
 from config import (
-    VIDEOS_PER_BATCH, VIDEOS_PER_BATCH_INSTAGRAM, TIKTOK_COOKIES_FILE, 
-    INSTAGRAM_SESSION_FILE, DATA_DIR, LOGS_DIR
+    VIDEOS_PER_EXECUTION, TIKTOK_COOKIES_FILE, 
+    INSTAGRAM_SESSION_FILE, DATA_DIR, LOGS_DIR,
+    should_post_to_tiktok, should_post_to_instagram
 )
 from account_checker import get_active_accounts, fetch_accounts_from_sheet, verify_all_accounts, save_verified_accounts
 from video_downloader import download_batch, save_uploaded_video, clean_raw_videos
@@ -33,24 +35,37 @@ def log_execution(message):
 
 def run_full_pipeline(videos_count=None):
     """
-    Ejecuta el pipeline completo:
-    1. Verificar cuentas (si es necesario)
-    2. Descargar videos
-    3. Procesar videos
-    4. Subir a TikTok
-    5. Subir a Instagram
+    Ejecuta el pipeline completo con publicación inteligente:
+    - TikTok: 6 veces al día (en horarios específicos)
+    - Instagram: 3 veces al día (en horarios de máximo alcance)
+    - 1 video por ejecución para parecer más humano
     """
     if videos_count is None:
-        videos_count = VIDEOS_PER_BATCH
+        videos_count = VIDEOS_PER_EXECUTION
+    
+    # Determinar a qué plataformas publicar según la hora
+    post_tiktok = should_post_to_tiktok()
+    post_instagram = should_post_to_instagram()
+    
+    current_hour = datetime.utcnow().hour
     
     print("=" * 60)
-    print("🚀 MEDIA FLOW ENGINE - AUTOMATIZACIÓN DE REDES SOCIALES")
+    print("🚀 MEDIA FLOW ENGINE - PUBLICACIÓN INTELIGENTE")
     print("=" * 60)
     print(f"📅 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"🎯 Objetivo: {videos_count} videos")
+    print(f"🕐 Hora UTC: {current_hour}:00")
+    print(f"📱 TikTok: {'✅ SÍ' if post_tiktok else '❌ NO'}")
+    print(f"📸 Instagram: {'✅ SÍ' if post_instagram else '❌ NO'}")
+    print(f"🎯 Videos: {videos_count}")
     print("=" * 60)
     
-    log_execution(f"Iniciando pipeline - Objetivo: {videos_count} videos")
+    # Si no toca publicar en ninguna plataforma, salir
+    if not post_tiktok and not post_instagram:
+        print("\n⏭️ No es hora de publicar en ninguna plataforma. Saltando...")
+        log_execution(f"Hora {current_hour}:00 UTC - No es hora de publicar")
+        return {"success": True, "skipped": True, "reason": "No es hora de publicar"}
+    
+    log_execution(f"Iniciando - TikTok: {post_tiktok}, Instagram: {post_instagram}")
     
     # Notificar inicio por Telegram
     notify_start()
@@ -75,10 +90,9 @@ def run_full_pipeline(videos_count=None):
     
     print(f"✅ {len(accounts)} cuentas disponibles")
     
-    # PASO 2: Descargar videos (descargamos más para compensar los filtrados)
+    # PASO 2: Descargar videos
     print("\n📥 PASO 2: Descargando videos...")
-    # Descargar 50% más para compensar videos con texto que se descartarán
-    download_count = int(videos_count * 1.5) if EASYOCR_AVAILABLE else videos_count
+    download_count = videos_count + 2 if EASYOCR_AVAILABLE else videos_count
     downloaded = download_batch(download_count)
     
     if not downloaded:
@@ -104,6 +118,9 @@ def run_full_pipeline(videos_count=None):
     else:
         print("  ⏭️ Detección de texto no disponible, continuando...")
     
+    # Limitar a la cantidad necesaria
+    downloaded = downloaded[:videos_count]
+    
     # PASO 3: Procesar videos
     print("\n🛠️ PASO 3: Procesando videos...")
     processed = process_batch(downloaded)
@@ -114,37 +131,40 @@ def run_full_pipeline(videos_count=None):
     
     log_execution(f"Procesados: {len(processed)} videos")
     
-    # PASO 4: Subir a TikTok
-    print("\n📤 PASO 4: Subiendo a TikTok...")
+    # PASO 4: Subir a TikTok (si es hora)
     tiktok_results = []
+    total_tiktok = 0
     
-    if os.path.exists(TIKTOK_COOKIES_FILE):
-        tiktok_results = upload_videos_to_tiktok(processed)
-        tiktok_success = sum(1 for r in tiktok_results if r["success"])
-        log_execution(f"TikTok: {tiktok_success}/{len(processed)} subidos")
-        
-        # Si ninguno se subió, probablemente las cookies expiraron
-        if tiktok_success == 0 and len(processed) > 0:
-            notify_cookies_expired()
+    if post_tiktok:
+        print("\n📤 PASO 4: Subiendo a TikTok...")
+        if os.path.exists(TIKTOK_COOKIES_FILE):
+            tiktok_results = upload_videos_to_tiktok(processed)
+            total_tiktok = sum(1 for r in tiktok_results if r["success"])
+            log_execution(f"TikTok: {total_tiktok}/{len(processed)} subidos")
+            
+            if total_tiktok == 0 and len(processed) > 0:
+                notify_cookies_expired()
+        else:
+            log_execution("ADVERTENCIA: No hay cookies de TikTok")
+            print("⚠️ No hay cookies de TikTok configuradas")
     else:
-        log_execution("ADVERTENCIA: No hay cookies de TikTok, omitiendo subida")
-        print("⚠️ No hay cookies de TikTok configuradas")
+        print("\n⏭️ PASO 4: Saltando TikTok (no es hora)")
     
-    # PASO 5: Subir a Instagram (menos videos para evitar restricciones)
-    print("\n📤 PASO 5: Subiendo a Instagram...")
+    # PASO 5: Subir a Instagram (si es hora)
     instagram_results = []
+    total_ig = 0
     
-    if INSTAGRAPI_AVAILABLE and os.path.exists(INSTAGRAM_SESSION_FILE):
-        # Limitar videos para Instagram (solo los primeros N)
-        videos_for_instagram = processed[:VIDEOS_PER_BATCH_INSTAGRAM]
-        print(f"  📸 Limitando a {len(videos_for_instagram)} videos para Instagram")
-        
-        instagram_results = upload_batch_instagram(videos_for_instagram)
-        ig_success = sum(1 for r in instagram_results if r["success"])
-        log_execution(f"Instagram: {ig_success}/{len(videos_for_instagram)} subidos")
+    if post_instagram:
+        print("\n📤 PASO 5: Subiendo a Instagram...")
+        if INSTAGRAPI_AVAILABLE and os.path.exists(INSTAGRAM_SESSION_FILE):
+            instagram_results = upload_batch_instagram(processed)
+            total_ig = sum(1 for r in instagram_results if r["success"])
+            log_execution(f"Instagram: {total_ig}/{len(processed)} subidos")
+        else:
+            log_execution("ADVERTENCIA: Instagram no configurado")
+            print("⚠️ Instagram no configurado")
     else:
-        log_execution("ADVERTENCIA: Instagram no configurado, omitiendo subida")
-        print("⚠️ Instagram no configurado")
+        print("\n⏭️ PASO 5: Saltando Instagram (no es hora)")
     
     # PASO 6: Registrar videos subidos
     print("\n📝 PASO 6: Registrando videos...")
@@ -164,16 +184,15 @@ def run_full_pipeline(videos_count=None):
     clean_ready_videos()
     
     # Resumen
-    total_tiktok = sum(1 for r in tiktok_results if r["success"]) if tiktok_results else 0
-    total_ig = sum(1 for r in instagram_results if r["success"]) if instagram_results else 0
-    
     print("\n" + "=" * 60)
     print("📊 RESUMEN DE EJECUCIÓN")
     print("=" * 60)
     print(f"  📥 Videos descargados: {len(downloaded)}")
     print(f"  🛠️ Videos procesados: {len(processed)}")
-    print(f"  📱 Subidos a TikTok: {total_tiktok}")
-    print(f"  📸 Subidos a Instagram: {total_ig}")
+    if post_tiktok:
+        print(f"  📱 Subidos a TikTok: {total_tiktok}")
+    if post_instagram:
+        print(f"  📸 Subidos a Instagram: {total_ig}")
     print("=" * 60)
     
     log_execution(f"Pipeline completado - TikTok: {total_tiktok}, Instagram: {total_ig}")
@@ -199,29 +218,24 @@ def setup_credentials():
     """Configura las credenciales iniciales"""
     print("🔧 Configurando credenciales...")
     
-    # Crear sesión de Instagram
-    SESSIONID = "45402018416%3A1jVgRHQfjyzwwR%3A11%3AAYg7uCIKGEX_mwFHXqK0LUwR87bGuxRgE91X0xxt8g"
+    SESSIONID = "45402018416%3AzNcRyDnQ2nMuLT%3A9%3AAYhAh8a9YhFWtHlG6d09O9JX_dJd1RLRyC5UOXK2Ew"
     from config import INSTAGRAM_USERNAME
     create_instagram_session(SESSIONID, INSTAGRAM_USERNAME)
     
     print("✅ Credenciales configuradas")
 
 if __name__ == "__main__":
-    # Argumentos de línea de comandos
     if len(sys.argv) > 1:
         if sys.argv[1] == "--setup":
             setup_credentials()
         elif sys.argv[1] == "--verify":
-            # Solo verificar cuentas
             accounts = fetch_accounts_from_sheet()
             if accounts:
                 results = verify_all_accounts(accounts, max_to_check=50)
                 save_verified_accounts(results)
         elif sys.argv[1].isdigit():
-            # Número de videos personalizado
             run_full_pipeline(int(sys.argv[1]))
         else:
             print("Uso: python main.py [--setup|--verify|numero_videos]")
     else:
-        # Ejecución normal
         run_full_pipeline()

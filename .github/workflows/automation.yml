@@ -1,24 +1,33 @@
-name: 🚀 Media Flow Engine - Automatización 24/7
+name: 🚀 Media Flow Engine - Publicación Inteligente
 
 on:
-  # Ejecutar cada 2 horas (0:00, 2:00, 4:00, 6:00, etc.)
+  # Ejecutar en horarios específicos (hora UTC)
+  # TikTok: 6 veces al día (7:00, 10:00, 13:00, 17:00, 20:00, 22:00 hora España)
+  # Instagram: 3 de esas veces (9:00, 14:00, 21:00 hora España)
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 6 * * *'   # 07:00 España - TikTok
+    - cron: '0 8 * * *'   # 09:00 España - TikTok + Instagram
+    - cron: '0 9 * * *'   # 10:00 España - TikTok
+    - cron: '0 12 * * *'  # 13:00 España - TikTok
+    - cron: '0 13 * * *'  # 14:00 España - TikTok + Instagram
+    - cron: '0 16 * * *'  # 17:00 España - TikTok
+    - cron: '0 19 * * *'  # 20:00 España - TikTok
+    - cron: '0 20 * * *'  # 21:00 España - TikTok + Instagram
+    - cron: '0 21 * * *'  # 22:00 España - TikTok
   
-  # Permitir ejecución manual desde GitHub
+  # Permitir ejecución manual
   workflow_dispatch:
     inputs:
       videos_count:
         description: 'Número de videos a procesar'
         required: false
-        default: '10'
+        default: '1'
 
 jobs:
   automation:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     
-    # Directorio de trabajo para todos los comandos
     defaults:
       run:
         working-directory: social-automation
@@ -68,8 +77,9 @@ jobs:
           TIKTOK_SESSIONID: ${{ secrets.TIKTOK_SESSIONID }}
           INSTAGRAM_SESSIONID: ${{ secrets.INSTAGRAM_SESSIONID }}
         run: |
-          VIDEOS=${{ github.event.inputs.videos_count || '10' }}
-          echo "🎬 Procesando $VIDEOS videos..."
+          VIDEOS=${{ github.event.inputs.videos_count || '1' }}
+          echo "🎬 Procesando $VIDEOS video(s)..."
+          echo "🕐 Hora UTC: $(date -u '+%H:%M')"
           python main.py $VIDEOS
 
       - name: 📊 Guardar logs
@@ -90,12 +100,12 @@ jobs:
           path: social-automation/logs/*.png
           retention-days: 7
 
-      - name: 💾 Commit cambios (videos subidos)
+      - name: 💾 Commit cambios
         if: success()
         run: |
           cd ..
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add social-automation/data/uploaded_videos.json social-automation/data/source_accounts.json || true
-          git diff --staged --quiet || git commit -m "🤖 Actualizar registro - $(date '+%Y-%m-%d %H:%M')"
+          git diff --staged --quiet || git commit -m "🤖 Video publicado - $(date '+%Y-%m-%d %H:%M')"
           git push || true
