@@ -80,9 +80,21 @@ def process_video(input_path, output_path):
 
 def enhance_description(original_description):
     """
-    Ahora devuelve descripción vacía - videos sin texto ni hashtags
+    Devuelve solo hashtags virales (sin descripción de texto)
     """
-    return ""
+    import random
+    
+    # Hashtags virales para máximo alcance
+    viral_hashtags = [
+        "#fyp", "#foryou", "#viral", "#parati", "#foryoupage",
+        "#trending", "#xyzbca", "#viralvideo"
+    ]
+    
+    # Seleccionar 4-5 hashtags aleatorios
+    num_hashtags = random.randint(4, 5)
+    selected = random.sample(viral_hashtags, num_hashtags)
+    
+    return " ".join(selected)
 
 def process_batch(video_list):
     """
