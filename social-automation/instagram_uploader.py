@@ -93,6 +93,31 @@ def get_instagram_client():
     
     return None
 
+def generate_thumbnail(video_path):
+    """
+    Genera un thumbnail del video usando FFmpeg
+    """
+    import subprocess
+    thumbnail_path = video_path.replace('.mp4', '_thumb.jpg')
+    
+    try:
+        cmd = [
+            'ffmpeg', '-i', video_path,
+            '-ss', '00:00:01',  # Frame al segundo 1
+            '-vframes', '1',
+            '-q:v', '2',
+            thumbnail_path,
+            '-y', '-loglevel', 'error'
+        ]
+        subprocess.run(cmd, capture_output=True, timeout=30)
+        
+        if os.path.exists(thumbnail_path):
+            return thumbnail_path
+    except Exception as e:
+        print(f"  ⚠️ Error generando thumbnail: {e}")
+    
+    return None
+
 def upload_to_instagram(video_path, description):
     """
     Sube un video/reel a Instagram
@@ -113,6 +138,9 @@ def upload_to_instagram(video_path, description):
         print("  ❌ No se pudo obtener cliente de Instagram")
         return False
     
+    # Generar thumbnail manualmente
+    thumbnail_path = generate_thumbnail(video_path)
+    
     try:
         # Subir como Reel (mejor alcance que video normal)
         print("  📤 Subiendo como Reel...")
@@ -120,7 +148,15 @@ def upload_to_instagram(video_path, description):
         media = cl.clip_upload(
             video_path,
             caption=description,
+            thumbnail=thumbnail_path,  # Thumbnail generado con FFmpeg
         )
+        
+        # Limpiar thumbnail temporal
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            try:
+                os.remove(thumbnail_path)
+            except:
+                pass
         
         if media:
             print(f"  ✅ ¡Reel publicado! ID: {media.pk}")
